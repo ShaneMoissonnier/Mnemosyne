@@ -96,7 +96,18 @@ void mem_fit(mem_fit_function_t *mff)
 //-------------------------------------------------------------
 struct fb *mem_first_fit(struct fb *head, size_t size)
 {
-    /* A COMPLETER */
+    fb *current_block = head;
+
+    while (current_block != NULL)
+    {
+        // On récupère le premier bloc libre qui peut stocker notre bloc alloué
+        if (size <= current_block->size)
+        {
+            return current_block;
+        }
+
+        current_block = current_block->next;
+    }
     return NULL;
 }
 //-------------------------------------------------------------
