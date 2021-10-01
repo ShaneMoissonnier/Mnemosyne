@@ -61,7 +61,7 @@ void mem_show(void (*print)(void *, size_t, int free))
 
     fb *free_block = (fb *)current_block;
 
-    // On parcoure les blocs mémoires jusqu'à l'adresse de fin de mémoire
+    // On parcourt les blocs mémoires jusqu'à l'adresse de fin de mémoire
     while (current_block < mem_end)
     {
         // On récupère le type de la zone (libre (1) ou occupée (0)) ainsi que sa taille
@@ -112,13 +112,47 @@ struct fb *mem_first_fit(struct fb *head, size_t size)
 }
 //-------------------------------------------------------------
 struct fb *mem_best_fit(struct fb *head, size_t size)
-{
-    /* A COMPLETER */
+{   
+    fb *current_block = head;
+    fb *best_block = head;
+
+    while (current_block != NULL)
+    {
+        //On récupère le premier bloc qui à la taille minimum suffisante pour stocker notre bloc alloué.
+        if (size <= current_block->size && (current_block->size < best_block->size || best_block->size < size))
+        {
+            best_block = current_block;
+        }
+
+        current_block = current_block->next;
+    }
+
+    if (size <= best_block->size){
+        return best_block;
+    }
+
     return NULL;
 }
 //-------------------------------------------------------------
 struct fb *mem_worst_fit(struct fb *head, size_t size)
-{
-    /* A COMPLETER */
+{   
+    fb *current_block = head;
+    fb *worst_block = head;
+
+    while (current_block != NULL)
+    {
+        //On récupère le premier bloc qui à la taille maximum suffisante pour stocker notre bloc alloué.
+        if (size <= current_block->size && current_block->size > worst_block->size)
+        {
+            worst_block = current_block;
+        }
+
+        current_block = current_block->next;
+    }
+
+    if (size <= worst_block->size){
+        return worst_block;
+    }
+
     return NULL;
 }
