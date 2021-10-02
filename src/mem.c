@@ -100,7 +100,7 @@ struct fb *mem_first_fit(struct fb *head, size_t size)
 
     while (current_block != NULL)
     {
-        // On récupère le premier bloc libre qui peut stocker notre bloc alloué
+        // On récupère le premier bloc libre pouvant stocker notre bloc alloué
         if (size <= current_block->size)
         {
             return current_block;
