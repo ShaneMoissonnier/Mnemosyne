@@ -26,7 +26,6 @@ void mem_init()
 
     // On initialise l'entête
     g_head->first = first_block;
-    g_head->fit_func = &mem_first_fit;
 
     mem_fit(&mem_first_fit);
     return;
@@ -112,7 +111,7 @@ struct fb *mem_first_fit(struct fb *head, size_t size)
 }
 //-------------------------------------------------------------
 struct fb *mem_best_fit(struct fb *head, size_t size)
-{   
+{
     fb *current_block = head;
     fb *best_block = head;
 
@@ -127,7 +126,8 @@ struct fb *mem_best_fit(struct fb *head, size_t size)
         current_block = current_block->next;
     }
 
-    if (size <= best_block->size){
+    if (size <= best_block->size)
+    {
         return best_block;
     }
 
@@ -135,7 +135,7 @@ struct fb *mem_best_fit(struct fb *head, size_t size)
 }
 //-------------------------------------------------------------
 struct fb *mem_worst_fit(struct fb *head, size_t size)
-{   
+{
     fb *current_block = head;
     fb *worst_block = head;
 
@@ -150,7 +150,8 @@ struct fb *mem_worst_fit(struct fb *head, size_t size)
         current_block = current_block->next;
     }
 
-    if (size <= worst_block->size){
+    if (size <= worst_block->size)
+    {
         return worst_block;
     }
 
