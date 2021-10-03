@@ -32,7 +32,8 @@ struct fb
 typedef struct
 {
     mem_fit_function_t *fit_func;
-    fb *first;
+    fb *fb_head;
+    fb *bb_head;
 } header;
 
 #endif /* mem_os_h */

@@ -25,7 +25,7 @@ void mem_init()
     first_block->size = mem_size - sizeof(header);
 
     // On initialise l'entête
-    g_head->first = first_block;
+    g_head->fb_head = first_block;
 
     mem_fit(&mem_first_fit);
     return;
@@ -36,8 +36,79 @@ void mem_init()
 //-------------------------------------------------------------
 void *mem_alloc(size_t size)
 {
-    /* A COMPLETER */
-    return NULL;
+    // On aligne la taille demandé par l'utilisateur
+    size_t aligned_size = get_align(size);
+    // On calcule la taille totale de notre bloc alloué (entête comprise)
+    size_t bb_block_size = aligned_size + sizeof(fb);
+
+    // On trouve la zone libre qui pourrait contenir notre bloc alloué
+    fb *f_b = g_head->fit_func(g_head->fb_head, bb_block_size);
+
+    // Si on n'a pas trouvé de bloc libre
+    if (f_b == NULL)
+        return NULL;
+
+    // On calcule la taille totale de notre zone libre trouvé (entête comprise)
+    size_t fb_block_size = f_b->size;
+
+    // On récupère le dernier bloc alloué se situant juste avant notre zone libre (last_busy_block)
+    fb *current_block = g_head->bb_head;
+    fb *last_busy_block = g_head->bb_head;
+
+    while (current_block != NULL && current_block < f_b)
+    {
+        last_busy_block = current_block;
+        current_block = current_block->next;
+    }
+
+    // Si le résidu restant ne peut contenir la taille d'une entête + un entier
+    // alors on augmente la taille du bloc que l'on va allouer par la taille du résidu.
+    fb *new_head;
+
+    if (fb_block_size - bb_block_size < sizeof(fb) + sizeof(size_t))
+    {
+        bb_block_size += fb_block_size - bb_block_size;
+        new_head = f_b->next;
+    }
+    else
+    {
+        // Sinon on peut scinder notre bloc libre
+        fb *new_fb = (fb *)((void *)f_b + bb_block_size);
+
+        *new_fb = (fb){
+            f_b->size - bb_block_size,
+            f_b->next};
+
+        new_head = new_fb;
+    }
+
+    // Si le bloc libre que l'on vient d'allouer était le bloc de tête alors on change le bloc de tête
+    if (f_b == g_head->fb_head)
+        g_head->fb_head = new_head;
+
+    // On définit la taille du bloc alloué
+    f_b->size = bb_block_size;
+
+    // Si la liste chaîné de blocs alloués est vide, ce nouveau bloc (occupé) en devient la tête
+    if (last_busy_block == NULL)
+    {
+        g_head->bb_head = f_b;
+        return (void *)f_b + sizeof(fb);
+    }
+
+    // Si le dernier bloc alloué se situe avant notre nouveau bloc alloué
+    if (last_busy_block < f_b)
+    {
+        void *temp = last_busy_block->next;
+        last_busy_block->next = f_b;
+        f_b->next = (fb *)temp;
+    }
+    else
+    {
+        g_head->bb_head = f_b;
+        f_b->next = last_busy_block;
+    }
+    return (void *)f_b + sizeof(fb);
 }
 
 //-------------------------------------------------------------
@@ -45,7 +116,6 @@ void *mem_alloc(size_t size)
 //-------------------------------------------------------------
 void mem_free(void *zone)
 {
-    /* A COMPLETER */
     return;
 }
 
@@ -56,16 +126,16 @@ void mem_free(void *zone)
 void mem_show(void (*print)(void *, size_t, int free))
 {
     void *mem_end = get_memory_adr() + get_memory_size();
-    void *current_block = (void *)g_head->first;
+    void *current_block = (void *)(get_memory_adr() + sizeof(header));
 
-    fb *free_block = (fb *)current_block;
+    fb *free_block = g_head->fb_head;
 
     // On parcourt les blocs mémoires jusqu'à l'adresse de fin de mémoire
     while (current_block < mem_end)
     {
         // On récupère le type de la zone (libre (1) ou occupée (0)) ainsi que sa taille
         size_t block_state = (current_block == free_block);
-        size_t size = free_block->size;
+        size_t size = ((fb *)current_block)->size;
 
         // On affiche la zone mémoire
         print(current_block, size, block_state);
