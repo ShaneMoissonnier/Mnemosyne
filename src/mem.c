@@ -108,6 +108,7 @@ void *mem_alloc(size_t size)
         g_head->bb_head = f_b;
         f_b->next = last_busy_block;
     }
+
     return (void *)f_b + sizeof(fb);
 }
 
@@ -116,6 +117,74 @@ void *mem_alloc(size_t size)
 //-------------------------------------------------------------
 void mem_free(void *zone)
 {
+    fb *bb_head = g_head->bb_head;
+    fb *last_bb_head = g_head->bb_head;
+
+    fb *current_fb_block = g_head->fb_head;
+    fb *last_fb_block = g_head->fb_head;
+
+    fb *current_bb_block = (fb *)(zone - sizeof(fb));
+
+    while (current_fb_block != NULL && current_fb_block < current_bb_block)
+    {
+        last_fb_block = current_fb_block;
+        current_fb_block = current_fb_block->next;
+    }
+
+    while (bb_head != NULL && bb_head < current_bb_block)
+    {
+        last_bb_head = bb_head;
+        bb_head = bb_head->next;
+    }
+
+    // Si le bloc que l'on va libérer est la tête de notre liste de zone allouées
+    // alors on change la tête
+    if (current_bb_block == g_head->bb_head)
+    {
+        g_head->bb_head = current_bb_block->next;
+    }
+    // Sinon c'est un bloc qui se situe au milieu de notre chaîne ou à la fin
+    else
+    {
+        last_bb_head->next = current_bb_block->next;
+    }
+
+    // Si toute la mémoire est occupée
+    // On actualise la tête des zones libres avec le bloc que l'on va libérer
+    if (last_fb_block == NULL)
+    {
+        g_head->fb_head = current_bb_block;
+        current_bb_block->next = NULL;
+        return;
+    }
+
+    if (current_bb_block < last_fb_block)
+    {
+        g_head->fb_head = current_bb_block;
+        current_bb_block->next = last_fb_block;
+    }
+    else
+    {
+        void *temp = last_fb_block->next;
+        last_fb_block->next = current_bb_block;
+        current_bb_block->next = (fb *)temp;
+    }
+
+    size_t need_fusion_left = (last_fb_block != NULL && (void *)last_fb_block + last_fb_block->size == (void *)current_bb_block);
+    size_t need_fusion_right = ((void *)current_bb_block + current_bb_block->size == (void *)current_bb_block->next);
+
+    if (need_fusion_right)
+    {
+        current_bb_block->size += current_bb_block->next->size;
+        current_bb_block->next = current_bb_block->next->next;
+    }
+
+    if (need_fusion_left)
+    {
+        last_fb_block->size += current_bb_block->size;
+        last_fb_block->next = current_bb_block->next;
+    }
+
     return;
 }
 
