@@ -138,6 +138,13 @@ void mem_free(void *zone)
         bb_head = bb_head->next;
     }
 
+    size_t corrupt = !(last_bb_head == current_bb_block || ((last_bb_head != NULL) && last_bb_head->next == current_bb_block));
+    if (corrupt)
+    {
+        printf("Erreur accès \n");
+        return;
+    }
+
     // Si le bloc que l'on va libérer est la tête de notre liste de zone allouées
     // alors on change la tête
     if (current_bb_block == g_head->bb_head)
