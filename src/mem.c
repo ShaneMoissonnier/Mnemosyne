@@ -26,6 +26,7 @@ void mem_init()
 
     // On initialise l'entête
     g_head->fb_head = first_block;
+    g_head->bb_head = NULL;
 
     mem_fit(&mem_first_fit);
     return;
