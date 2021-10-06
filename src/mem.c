@@ -23,6 +23,7 @@ void mem_init()
 
     // On initialise la taille du bloc libre à la mémoire restante
     first_block->size = mem_size - sizeof(header);
+    first_block->next = NULL;
 
     // On initialise l'entête
     g_head->fb_head = first_block;
@@ -62,6 +63,16 @@ void *mem_alloc(size_t size)
         current_block = current_block->next;
     }
 
+    // On récupère la zone libre précédent notre zone libre trouvé par mem_fit
+    fb *current_fb_block = g_head->fb_head;
+    fb *last_fb_block = g_head->fb_head;
+
+    while (current_fb_block != NULL && current_fb_block < f_b)
+    {
+        last_fb_block = current_fb_block;
+        current_fb_block = current_fb_block->next;
+    }
+
     // Si le résidu restant ne peut contenir la taille d'une entête + un entier
     // alors on augmente la taille du bloc que l'on va allouer par la taille du résidu.
     fb *new_head;
@@ -85,7 +96,15 @@ void *mem_alloc(size_t size)
 
     // Si le bloc libre que l'on vient d'allouer était le bloc de tête alors on change le bloc de tête
     if (f_b == g_head->fb_head)
+    {
         g_head->fb_head = new_head;
+    }
+
+    //On évite de casser notre liste chaînée de zones libres
+    if (last_fb_block != NULL && last_fb_block != f_b)
+    {
+        last_fb_block->next = new_head;
+    }
 
     // On définit la taille du bloc alloué
     f_b->size = bb_block_size;
@@ -98,6 +117,7 @@ void *mem_alloc(size_t size)
     }
 
     // Si le dernier bloc alloué se situe avant notre nouveau bloc alloué
+    // On réarrange notre liste chaînée de blocs alloués
     if (last_busy_block < f_b)
     {
         void *temp = last_busy_block->next;
@@ -166,6 +186,7 @@ void mem_free(void *zone)
         return;
     }
 
+    //On réarrange notre liste chaînée de blocs libres
     if (current_bb_block < last_fb_block)
     {
         g_head->fb_head = current_bb_block;
@@ -178,6 +199,7 @@ void mem_free(void *zone)
         current_bb_block->next = (fb *)temp;
     }
 
+    // On fusionne nos blocs libres si nécessaire
     size_t need_fusion_left = (last_fb_block != NULL && (void *)last_fb_block + last_fb_block->size == (void *)current_bb_block);
     size_t need_fusion_right = ((void *)current_bb_block + current_bb_block->size == (void *)current_bb_block->next);
 
