@@ -12,6 +12,30 @@ header *get_head(){
 }
 
 //-------------------------------------------------------------
+// mem_block_insertion
+//-------------------------------------------------------------
+void mem_block_insertion(fb *current_block, fb *last_block, size_t head_type)
+{
+    if (last_block < current_block) 
+    {
+        void *temp = last_block->next;
+        last_block->next = current_block;
+        current_block->next = (fb *)temp;
+        return;
+    }
+
+    if (head_type) 
+    {
+        get_head()->fb_head = current_block;
+    } 
+    else 
+    {
+        get_head()->bb_head = current_block;
+    }
+    current_block->next = last_block;
+}
+
+//-------------------------------------------------------------
 // mem_init
 //-------------------------------------------------------------
 void mem_init()
@@ -123,19 +147,8 @@ void *mem_alloc(size_t size)
         return (void *)f_b + sizeof(fb);
     }
 
-    // Si le dernier bloc alloué se situe avant notre nouveau bloc alloué
     // On réarrange notre liste chaînée de blocs alloués
-    if (last_busy_block < f_b)
-    {
-        void *temp = last_busy_block->next;
-        last_busy_block->next = f_b;
-        f_b->next = (fb *)temp;
-    }
-    else
-    {
-        g_head->bb_head = f_b;
-        f_b->next = last_busy_block;
-    }
+    mem_block_insertion(f_b, last_busy_block, BUSY);
 
     return (void *)f_b + sizeof(fb);
 }
@@ -197,17 +210,7 @@ void mem_free(void *zone)
     }
 
     //On réarrange notre liste chaînée de blocs libres
-    if (current_bb_block < last_fb_block)
-    {
-        g_head->fb_head = current_bb_block;
-        current_bb_block->next = last_fb_block;
-    }
-    else
-    {
-        void *temp = last_fb_block->next;
-        last_fb_block->next = current_bb_block;
-        current_bb_block->next = (fb *)temp;
-    }
+    mem_block_insertion(current_bb_block, last_fb_block, FREE);
 
     // On fusionne nos blocs libres si nécessaire
     size_t need_fusion_left = (last_fb_block != NULL && (void *)last_fb_block + last_fb_block->size == (void *)current_bb_block);

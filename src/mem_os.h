@@ -39,4 +39,8 @@ typedef struct
 // Permet de récupérer l'entête
 header *get_head();
 
+enum HeadType {BUSY, FREE};
+
+void mem_block_insertion(fb *, fb *, size_t);
+
 #endif /* mem_os_h */

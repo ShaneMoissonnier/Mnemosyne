@@ -11,7 +11,7 @@ CFLAGS+= -DDEBUG
 LDFLAGS= $(HOST32)
 INCLUDE=.
 
-TESTS+=test_init test_base test_cheese test_fusion 
+TESTS+=test_init test_base test_base_bzero test_cheese test_fusion test_frag test_fusion_bzero test_cheese_bzero
 PROGRAMS=memshell
 
 .PHONY: clean all test test_ls
