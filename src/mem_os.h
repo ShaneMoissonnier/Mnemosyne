@@ -36,4 +36,7 @@ typedef struct
     fb *bb_head;
 } header;
 
+// Permet de récupérer l'entête
+header *get_head();
+
 #endif /* mem_os_h */

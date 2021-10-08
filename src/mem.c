@@ -4,8 +4,12 @@
 #include "mem_os.h"
 #include <stdio.h>
 
-// Stocke l'adresse de l'entête
-header *g_head;
+//-------------------------------------------------------------
+// get_head
+//-------------------------------------------------------------
+header *get_head(){
+    return (header *) get_memory_adr();
+}
 
 //-------------------------------------------------------------
 // mem_init
@@ -15,8 +19,8 @@ void mem_init()
     void *mem_adr = get_memory_adr();
     size_t mem_size = get_memory_size();
 
-    // On crée l'entête qui stockera nos informations globales
-    g_head = (header *)mem_adr;
+    // On récupère l'entête qui stockera nos informations globales
+    header *g_head = get_head();
 
     // On crée le premier bloc libre qui occupe "toute" la mémoire
     fb *first_block = (fb *)(mem_adr + sizeof(header));
@@ -38,6 +42,9 @@ void mem_init()
 //-------------------------------------------------------------
 void *mem_alloc(size_t size)
 {
+    // On récupère l'entête qui stockera nos informations globales
+    header *g_head = get_head();
+
     // On aligne la taille demandé par l'utilisateur
     size_t aligned_size = get_align(size);
     // On calcule la taille totale de notre bloc alloué (entête comprise)
@@ -138,6 +145,9 @@ void *mem_alloc(size_t size)
 //-------------------------------------------------------------
 void mem_free(void *zone)
 {
+    // On récupère l'entête qui stockera nos informations globales
+    header *g_head = get_head();
+
     fb *bb_head = g_head->bb_head;
     fb *last_bb_head = g_head->bb_head;
 
@@ -227,7 +237,7 @@ void mem_show(void (*print)(void *, size_t, int free))
     void *mem_end = get_memory_adr() + get_memory_size();
     void *current_block = (void *)(get_memory_adr() + sizeof(header));
 
-    fb *free_block = g_head->fb_head;
+    fb *free_block = get_head()->fb_head;
 
     // On parcourt les blocs mémoires jusqu'à l'adresse de fin de mémoire
     while (current_block < mem_end)
@@ -255,7 +265,7 @@ void mem_show(void (*print)(void *, size_t, int free))
 //-------------------------------------------------------------
 void mem_fit(mem_fit_function_t *mff)
 {
-    g_head->fit_func = mff;
+    get_head()->fit_func = mff;
     return;
 }
 
