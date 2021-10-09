@@ -7,8 +7,9 @@
 //-------------------------------------------------------------
 // get_head
 //-------------------------------------------------------------
-header *get_head(){
-    return (header *) get_memory_adr();
+header *get_head()
+{
+    return (header *)get_memory_adr();
 }
 
 //-------------------------------------------------------------
@@ -16,7 +17,7 @@ header *get_head(){
 //-------------------------------------------------------------
 void mem_block_insertion(fb *current_block, fb *last_block, size_t head_type)
 {
-    if (last_block < current_block) 
+    if (last_block < current_block)
     {
         void *temp = last_block->next;
         last_block->next = current_block;
@@ -24,11 +25,11 @@ void mem_block_insertion(fb *current_block, fb *last_block, size_t head_type)
         return;
     }
 
-    if (head_type) 
+    if (head_type)
     {
         get_head()->fb_head = current_block;
-    } 
-    else 
+    }
+    else
     {
         get_head()->bb_head = current_block;
     }
@@ -77,8 +78,8 @@ void *mem_alloc(size_t size)
     // On trouve la zone libre qui pourrait contenir notre bloc alloué
     fb *f_b = g_head->fit_func(g_head->fb_head, bb_block_size);
 
-    // Si on n'a pas trouvé de bloc libre
-    if (f_b == NULL)
+    // Si on n'a pas trouvé de bloc libre ou bien si la valeur demandée par l'utilisateur n'est pas positive
+    if (f_b == NULL || (int)size < 0)
         return NULL;
 
     // On calcule la taille totale de notre zone libre trouvé (entête comprise)
