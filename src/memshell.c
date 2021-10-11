@@ -43,7 +43,7 @@ void afficher_tas(void *adresse, size_t taille, int free)
     switch (free)
     {
     case 0:
-        printf("%11d |%11s |%11ld |%11d |%11ld\n", (int)(adresse - get_memory_adr()), "BUSY", taille, (int)((adresse + sizeof(fb)) - get_memory_adr()), taille - sizeof(fb));
+        printf("%11d |%11s |%11ld |%11d |%11ld\n", (int)(adresse - get_memory_adr()), "BUSY", taille, (int)((adresse + sizeof(bb)) - get_memory_adr()), taille - sizeof(bb));
         break;
     case 1:
         printf("%11d |%11s |%11ld |\n", (int)(adresse - get_memory_adr()), "FREE", taille);

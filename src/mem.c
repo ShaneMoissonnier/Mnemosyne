@@ -13,30 +13,6 @@ header *get_head()
 }
 
 //-------------------------------------------------------------
-// mem_block_insertion
-//-------------------------------------------------------------
-void mem_block_insertion(fb *current_block, fb *last_block, size_t head_type)
-{
-    if (last_block < current_block)
-    {
-        void *temp = last_block->next;
-        last_block->next = current_block;
-        current_block->next = (fb *)temp;
-        return;
-    }
-
-    if (head_type)
-    {
-        get_head()->fb_head = current_block;
-    }
-    else
-    {
-        get_head()->bb_head = current_block;
-    }
-    current_block->next = last_block;
-}
-
-//-------------------------------------------------------------
 // mem_init
 //-------------------------------------------------------------
 void mem_init()
@@ -48,17 +24,20 @@ void mem_init()
     header *g_head = get_head();
 
     // On crée le premier bloc libre qui occupe "toute" la mémoire
-    fb *first_block = (fb *)(mem_adr + sizeof(header));
+    fb *first_block = (fb *)(mem_adr + sizeof(header) + sizeof(fb));
+    fb *fake_block = (fb *)(mem_adr + sizeof(header));
 
     // On initialise la taille du bloc libre à la mémoire restante
-    first_block->size = mem_size - sizeof(header);
+    first_block->size = mem_size - sizeof(header) - sizeof(fb);
     first_block->next = NULL;
 
     // On initialise l'entête
-    g_head->fb_head = first_block;
-    g_head->bb_head = NULL;
+    g_head->fb_head = fake_block;
 
-    mem_fit(&mem_first_fit);
+    fake_block->size = sizeof(fb);
+    fake_block->next = first_block;
+
+    mem_fit(&mem_worst_fit);
     return;
 }
 
@@ -73,85 +52,57 @@ void *mem_alloc(size_t size)
     // On aligne la taille demandé par l'utilisateur
     size_t aligned_size = get_align(size);
     // On calcule la taille totale de notre bloc alloué (entête comprise)
-    size_t bb_block_size = aligned_size + sizeof(fb);
+    size_t bb_size = aligned_size + sizeof(bb);
 
     // On trouve la zone libre qui pourrait contenir notre bloc alloué
-    fb *f_b = g_head->fit_func(g_head->fb_head, bb_block_size);
+    fb *precedent_fb = g_head->fit_func(g_head->fb_head, bb_size);
 
     // Si on n'a pas trouvé de bloc libre ou bien si la valeur demandée par l'utilisateur n'est pas positive
-    if (f_b == NULL || (int)size < 0)
+    if (precedent_fb == NULL || (int)size < 0)
         return NULL;
 
+    fb *current_fb = precedent_fb->next;
+
     // On calcule la taille totale de notre zone libre trouvé (entête comprise)
-    size_t fb_block_size = f_b->size;
-
-    // On récupère le dernier bloc alloué se situant juste avant notre zone libre (last_busy_block)
-    fb *current_block = g_head->bb_head;
-    fb *last_busy_block = g_head->bb_head;
-
-    while (current_block != NULL && current_block < f_b)
-    {
-        last_busy_block = current_block;
-        current_block = current_block->next;
-    }
-
-    // On récupère la zone libre précédent notre zone libre trouvé par mem_fit
-    fb *current_fb_block = g_head->fb_head;
-    fb *last_fb_block = g_head->fb_head;
-
-    while (current_fb_block != NULL && current_fb_block < f_b)
-    {
-        last_fb_block = current_fb_block;
-        current_fb_block = current_fb_block->next;
-    }
+    size_t fb_size = current_fb->size;
 
     // Si le résidu restant ne peut contenir la taille d'une entête + un entier
     // alors on augmente la taille du bloc que l'on va allouer par la taille du résidu.
-    fb *new_head;
+    fb *new_block;
 
-    if (fb_block_size - bb_block_size < sizeof(fb) + sizeof(size_t))
+    if (fb_size - bb_size < sizeof(fb) + sizeof(size_t))
     {
-        bb_block_size += fb_block_size - bb_block_size;
-        new_head = f_b->next;
+        bb_size += fb_size - bb_size;
+        new_block = current_fb->next;
     }
     else
     {
         // Sinon on peut scinder notre bloc libre
-        fb *new_fb = (fb *)((void *)f_b + bb_block_size);
+        fb *new_fb = (fb *)((void *)current_fb + bb_size);
 
         *new_fb = (fb){
-            f_b->size - bb_block_size,
-            f_b->next};
+            fb_size - bb_size,
+            current_fb->next};
 
-        new_head = new_fb;
+        new_block = new_fb;
     }
 
     // Si le bloc libre que l'on vient d'allouer était le bloc de tête alors on change le bloc de tête
-    if (f_b == g_head->fb_head)
+    if (current_fb == g_head->fb_head->next)
     {
-        g_head->fb_head = new_head;
+        g_head->fb_head->next = new_block;
     }
-
-    //On évite de casser notre liste chaînée de zones libres
-    if (last_fb_block != NULL && last_fb_block != f_b)
+    else
     {
-        last_fb_block->next = new_head;
+        precedent_fb->next = new_block;
     }
 
     // On définit la taille du bloc alloué
-    f_b->size = bb_block_size;
+    bb *busy_block = (bb *)current_fb;
+    busy_block->size = bb_size;
+    busy_block->ptr = (void *)busy_block;
 
-    // Si la liste chaîné de blocs alloués est vide, ce nouveau bloc (occupé) en devient la tête
-    if (last_busy_block == NULL)
-    {
-        g_head->bb_head = f_b;
-        return (void *)f_b + sizeof(fb);
-    }
-
-    // On réarrange notre liste chaînée de blocs alloués
-    mem_block_insertion(f_b, last_busy_block, BUSY);
-
-    return (void *)f_b + sizeof(fb);
+    return (void *)busy_block + sizeof(bb);
 }
 
 //-------------------------------------------------------------
@@ -162,71 +113,44 @@ void mem_free(void *zone)
     // On récupère l'entête qui stockera nos informations globales
     header *g_head = get_head();
 
-    fb *bb_head = g_head->bb_head;
-    fb *last_bb_head = g_head->bb_head;
+    bb *current_bb = (bb *)(zone - sizeof(bb));
 
-    fb *current_fb_block = g_head->fb_head;
-    fb *last_fb_block = g_head->fb_head;
+    fb *current_fb = g_head->fb_head;
+    fb *last_fb = g_head->fb_head;
 
-    fb *current_bb_block = (fb *)(zone - sizeof(fb));
-
-    while (current_fb_block != NULL && current_fb_block < current_bb_block)
+    while (current_fb != NULL && (void *)current_fb < (void *)current_bb)
     {
-        last_fb_block = current_fb_block;
-        current_fb_block = current_fb_block->next;
+        last_fb = current_fb;
+        current_fb = current_fb->next;
     }
 
-    while (bb_head != NULL && bb_head < current_bb_block)
-    {
-        last_bb_head = bb_head;
-        bb_head = bb_head->next;
-    }
-
-    size_t corrupt = !(last_bb_head == current_bb_block || ((last_bb_head != NULL) && last_bb_head->next == current_bb_block));
+    size_t corrupt = (void *)current_bb < get_memory_adr() || (void *)current_bb > get_memory_adr() + get_memory_size() || !(current_bb->ptr == current_bb);
     if (corrupt)
     {
         printf("Erreur accès \n");
         return;
     }
 
-    // Si le bloc que l'on va libérer est la tête de notre liste de zone allouées
-    // alors on change la tête
-    if (current_bb_block == g_head->bb_head)
-    {
-        g_head->bb_head = current_bb_block->next;
-    }
-    // Sinon c'est un bloc qui se situe au milieu de notre chaîne ou à la fin
-    else
-    {
-        last_bb_head->next = current_bb_block->next;
-    }
+    fb *new_block = (fb *)current_bb;
 
-    // Si toute la mémoire est occupée
-    // On actualise la tête des zones libres avec le bloc que l'on va libérer
-    if (last_fb_block == NULL)
-    {
-        g_head->fb_head = current_bb_block;
-        current_bb_block->next = NULL;
-        return;
-    }
-
-    //On réarrange notre liste chaînée de blocs libres
-    mem_block_insertion(current_bb_block, last_fb_block, FREE);
+    fb *temp = last_fb->next;
+    last_fb->next = new_block;
+    new_block->next = temp;
 
     // On fusionne nos blocs libres si nécessaire
-    size_t need_fusion_left = (last_fb_block != NULL && (void *)last_fb_block + last_fb_block->size == (void *)current_bb_block);
-    size_t need_fusion_right = ((void *)current_bb_block + current_bb_block->size == (void *)current_bb_block->next);
+    size_t need_fusion_left = (last_fb != g_head->fb_head && (void *)last_fb + last_fb->size == (void *)new_block);
+    size_t need_fusion_right = ((void *)new_block + new_block->size == (void *)new_block->next);
 
     if (need_fusion_right)
     {
-        current_bb_block->size += current_bb_block->next->size;
-        current_bb_block->next = current_bb_block->next->next;
+        new_block->size += new_block->next->size;
+        new_block->next = new_block->next->next;
     }
 
     if (need_fusion_left)
     {
-        last_fb_block->size += current_bb_block->size;
-        last_fb_block->next = current_bb_block->next;
+        last_fb->size += new_block->size;
+        last_fb->next = new_block->next;
     }
 
     return;
@@ -278,16 +202,18 @@ void mem_fit(mem_fit_function_t *mff)
 //-------------------------------------------------------------
 struct fb *mem_first_fit(struct fb *head, size_t size)
 {
-    fb *current_block = head;
+    fb *current_block = head->next;
+    fb *last_block = head;
 
     while (current_block != NULL)
     {
         // On récupère le premier bloc libre pouvant stocker notre bloc alloué
         if (size <= current_block->size)
         {
-            return current_block;
+            return last_block;
         }
 
+        last_block = current_block;
         current_block = current_block->next;
     }
     return NULL;
@@ -295,8 +221,11 @@ struct fb *mem_first_fit(struct fb *head, size_t size)
 //-------------------------------------------------------------
 struct fb *mem_best_fit(struct fb *head, size_t size)
 {
-    fb *current_block = head;
-    fb *best_block = head;
+    fb *current_block = head->next;
+    fb *best_block = head->next;
+
+    fb *last_block = head;
+    fb *best_last_block = head;
 
     while (current_block != NULL)
     {
@@ -304,14 +233,15 @@ struct fb *mem_best_fit(struct fb *head, size_t size)
         if (size <= current_block->size && (current_block->size < best_block->size || best_block->size < size))
         {
             best_block = current_block;
+            best_last_block = last_block;
         }
-
+        last_block = current_block;
         current_block = current_block->next;
     }
 
-    if (size <= best_block->size)
+    if (best_block != NULL && size <= best_block->size)
     {
-        return best_block;
+        return best_last_block;
     }
 
     return NULL;
@@ -322,20 +252,25 @@ struct fb *mem_worst_fit(struct fb *head, size_t size)
     fb *current_block = head;
     fb *worst_block = head;
 
+    fb *last_block = head;
+    fb *worst_last_block = head;
+
     while (current_block != NULL)
     {
         //On récupère le premier bloc qui à la taille maximum suffisante pour stocker notre bloc alloué.
         if (size <= current_block->size && current_block->size > worst_block->size)
         {
             worst_block = current_block;
+            worst_last_block = last_block;
         }
 
+        last_block = current_block;
         current_block = current_block->next;
     }
 
-    if (size <= worst_block->size)
+    if (worst_block != NULL && size <= worst_block->size)
     {
-        return worst_block;
+        return worst_last_block;
     }
 
     return NULL;

@@ -28,18 +28,28 @@ struct fb
     fb *next;
 };
 
+typedef struct bb bb;
+struct bb
+{
+    size_t size;
+    bb *ptr;
+};
+
 // Structure de l'entête au début du tas
 typedef struct
 {
     mem_fit_function_t *fit_func;
     fb *fb_head;
-    fb *bb_head;
 } header;
 
 // Permet de récupérer l'entête
 header *get_head();
 
-enum HeadType {BUSY, FREE};
+enum HeadType
+{
+    BUSY,
+    FREE
+};
 
 void mem_block_insertion(fb *, fb *, size_t);
 
