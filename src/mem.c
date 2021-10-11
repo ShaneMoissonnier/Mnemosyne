@@ -221,27 +221,22 @@ struct fb *mem_first_fit(struct fb *head, size_t size)
 //-------------------------------------------------------------
 struct fb *mem_best_fit(struct fb *head, size_t size)
 {
-    fb *current_block = head->next;
-    fb *best_block = head->next;
+    fb *current_block = head;
+    fb *before_best_block = head;
 
-    fb *last_block = head;
-    fb *best_last_block = head;
-
-    while (current_block != NULL)
+    while (current_block->next != NULL)
     {
-        //On récupère le premier bloc qui à la taille minimum suffisante pour stocker notre bloc alloué.
-        if (size <= current_block->size && (current_block->size < best_block->size || best_block->size < size))
+        //On récupère le bloc précédent le premier bloc qui à la taille minimum suffisante pour stocker notre bloc alloué.
+        if (current_block->next->size >= size && (current_block->next->size < before_best_block->next->size || before_best_block->next->size < size))
         {
-            best_block = current_block;
-            best_last_block = last_block;
+            before_best_block = current_block;
         }
-        last_block = current_block;
         current_block = current_block->next;
     }
-
-    if (best_block != NULL && size <= best_block->size)
+    //On vérifie qu'on a un bloc valide, et pas la valeur par défaut
+    if (before_best_block->next != NULL && size <= before_best_block->next->size)
     {
-        return best_last_block;
+        return before_best_block;
     }
 
     return NULL;
@@ -250,27 +245,21 @@ struct fb *mem_best_fit(struct fb *head, size_t size)
 struct fb *mem_worst_fit(struct fb *head, size_t size)
 {
     fb *current_block = head;
-    fb *worst_block = head;
+    fb *before_worst_block = head;
 
-    fb *last_block = head;
-    fb *worst_last_block = head;
-
-    while (current_block != NULL)
+    while (current_block->next != NULL)
     {
         //On récupère le premier bloc qui à la taille maximum suffisante pour stocker notre bloc alloué.
-        if (size <= current_block->size && current_block->size > worst_block->size)
+        if (size <= current_block->next->size && current_block->next->size > before_worst_block->next->size)
         {
-            worst_block = current_block;
-            worst_last_block = last_block;
+            before_worst_block = current_block;
         }
-
-        last_block = current_block;
         current_block = current_block->next;
     }
-
-    if (worst_block != NULL && size <= worst_block->size)
+    //On vérifie qu'on a un bloc valide, et pas la valeur par défaut
+    if (before_worst_block->next != NULL && size <= before_worst_block->next->size)
     {
-        return worst_last_block;
+        return before_worst_block;
     }
 
     return NULL;
