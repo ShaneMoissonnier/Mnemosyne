@@ -51,6 +51,4 @@ enum HeadType
     FREE
 };
 
-void mem_block_insertion(fb *, fb *, size_t);
-
 #endif /* mem_os_h */
