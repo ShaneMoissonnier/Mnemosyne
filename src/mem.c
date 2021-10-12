@@ -37,7 +37,7 @@ void mem_init()
     fake_block->size = sizeof(fb);
     fake_block->next = first_block;
 
-    mem_fit(&mem_worst_fit);
+    mem_fit(&mem_first_fit);
     return;
 }
 
@@ -103,6 +103,123 @@ void *mem_alloc(size_t size)
     busy_block->ptr = (void *)busy_block;
 
     return (void *)busy_block + sizeof(bb);
+}
+
+//-------------------------------------------------------------
+// mem_copy_data
+//-------------------------------------------------------------
+void mem_copy_data(void *source, void *destination)
+{
+    int i = 0;
+    char *src = (char *)source + sizeof(bb);
+    char *dest = (char *)destination + sizeof(bb);
+
+    size_t src_size = ((bb *)source)->size - sizeof(bb);
+    size_t dest_size = ((bb *)destination)->size - sizeof(bb);
+
+    for (i = 0; i < src_size && i < dest_size; i++)
+    {
+        dest[i] = src[i];
+    }
+}
+
+//-------------------------------------------------------------
+// mem_realloc
+//-------------------------------------------------------------
+void *mem_realloc(void *zone, size_t size)
+{
+    // cas où zone est NULL
+    header *g_head = get_head();
+
+    bb *current_bb = (bb *)(zone - sizeof(bb));
+
+    size_t aligned_size = get_align(size);
+
+    fb *current_fb = g_head->fb_head;
+    fb *last_fb = g_head->fb_head;
+
+    while (current_fb != NULL && (void *)current_fb < (void *)current_bb)
+    {
+        last_fb = current_fb;
+        current_fb = current_fb->next;
+    }
+
+    size_t corrupt = (void *)current_bb < get_memory_adr() || (void *)current_bb > get_memory_adr() + get_memory_size() || !(current_bb->ptr == current_bb);
+    if (corrupt)
+    {
+        printf("Erreur accès \n");
+        return NULL;
+    }
+
+    size_t current_bb_size = current_bb->size - sizeof(bb);
+    size_t new_current_bb_size = aligned_size + sizeof(bb);
+
+    // Si notre bloc alloué peut déjà contenir la taille que l'utilisateur demande
+    if (current_bb_size >= aligned_size)
+    {
+        // On scinde le reste du bloc alloué pour créer un bloc libre
+        if (current_bb->size - new_current_bb_size > sizeof(fb) + sizeof(size_t))
+        {
+            fb *new_fb = (fb *)((void *)current_bb + new_current_bb_size);
+
+            *new_fb = (fb){
+                current_bb->size - new_current_bb_size,
+                current_fb};
+
+            last_fb->next = new_fb;
+
+            // On peut fusionner le bloc que l'on vient de scinder avec le bloc suivant qui est libre
+            if (current_fb != NULL && (void *)new_fb + new_fb->size == (void *)current_fb)
+            {
+                new_fb->size += current_fb->size;
+                new_fb->next = current_fb->next;
+            }
+
+            // on change la taille de notre bloc alloué avec notre nouvelle taille
+            current_bb->size = new_current_bb_size;
+        }
+
+        return zone;
+    }
+
+    // Si le bloc suivant est libre et que la taille ajouté à notre bloc alloué est suffisante pour stocker la taille demandée
+    if (current_fb != NULL && (void *)current_bb + current_bb->size == (void *)current_fb && (current_fb->size - sizeof(fb)) + (current_bb->size - sizeof(bb)) >= aligned_size)
+    {
+        current_bb->size += current_fb->size;
+        fb *new_block = current_fb->next;
+
+        // On scinde le reste du bloc alloué pour créer un bloc libre
+        if (current_bb->size - new_current_bb_size > sizeof(fb) + sizeof(size_t))
+        {
+            fb *new_fb = (fb *)((void *)current_bb + aligned_size + sizeof(bb));
+
+            *new_fb = (fb){
+                current_bb->size - new_current_bb_size,
+                current_fb->next};
+
+            new_block = new_fb;
+
+            current_bb->size = new_current_bb_size;
+        }
+
+        last_fb->next = new_block;
+
+        return zone;
+    }
+
+    // Sinon on fait un alloc classique et on copie nos données (partie simple)
+    void *new_block = mem_alloc(aligned_size);
+
+    if (new_block == NULL)
+        return NULL;
+
+    bb *new_bb = (bb *)(new_block - sizeof(bb));
+
+    mem_copy_data(current_bb, new_bb);
+
+    mem_free(zone);
+
+    return (void *)new_bb + sizeof(bb);
 }
 
 //-------------------------------------------------------------
