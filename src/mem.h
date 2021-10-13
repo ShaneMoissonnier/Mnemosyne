@@ -7,6 +7,7 @@
 /* -----------------------------------------------*/
 void *mem_alloc(size_t);
 void mem_copy_data(void *source, void *destination);
+void mem_remove_data(void *block);
 void *mem_realloc(void *zone, size_t size);
 void mem_free(void *);
 size_t mem_get_size(void *);

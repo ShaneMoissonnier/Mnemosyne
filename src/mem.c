@@ -110,7 +110,7 @@ void *mem_alloc(size_t size)
 //-------------------------------------------------------------
 void mem_copy_data(void *source, void *destination)
 {
-    int i = 0;
+    int i;
     char *src = (char *)source + sizeof(bb);
     char *dest = (char *)destination + sizeof(bb);
 
@@ -223,6 +223,21 @@ void *mem_realloc(void *zone, size_t size)
 }
 
 //-------------------------------------------------------------
+// mem_remove_data
+//-------------------------------------------------------------
+void mem_remove_data(void *block)
+{
+    int i;
+    char *bb_block_data = (char *)block + sizeof(bb);
+    size_t bb_block_size = ((bb *)block)->size - sizeof(bb);
+
+    for (i = 0; i < bb_block_size; i++)
+    {
+        bb_block_data[i] = 0;
+    }
+}
+
+//-------------------------------------------------------------
 // mem_free
 //-------------------------------------------------------------
 void mem_free(void *zone)
@@ -247,6 +262,9 @@ void mem_free(void *zone)
         printf("Erreur accès \n");
         return;
     }
+
+    // On supprime par sécurité les données utilisateur contenues dans le bloc que l'on va libérer
+    mem_remove_data((void *)current_bb);
 
     fb *new_block = (fb *)current_bb;
 
