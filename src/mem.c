@@ -25,6 +25,8 @@ void mem_init()
 
     // On crée le premier bloc libre qui occupe "toute" la mémoire
     fb *first_block = (fb *)(mem_adr + sizeof(header) + sizeof(fb));
+
+    // On crée notre élément fictif en début de tas
     fb *fake_block = (fb *)(mem_adr + sizeof(header));
 
     // On initialise la taille du bloc libre à la mémoire restante
@@ -34,6 +36,7 @@ void mem_init()
     // On initialise l'entête
     g_head->fb_head = fake_block;
 
+    // On initialise notre élément fictif
     fake_block->size = sizeof(fb);
     fake_block->next = first_block;
 
@@ -51,7 +54,7 @@ void *mem_alloc(size_t size)
 
     // On aligne la taille demandé par l'utilisateur
     size_t aligned_size = get_align(size);
-    // On calcule la taille totale de notre bloc alloué (entête comprise)
+    // On calcule la taille totale de notre bloc alloué (entête compris)
     size_t bb_size = aligned_size + sizeof(bb);
 
     // On trouve la zone libre qui pourrait contenir notre bloc alloué
@@ -63,10 +66,10 @@ void *mem_alloc(size_t size)
 
     fb *current_fb = precedent_fb->next;
 
-    // On calcule la taille totale de notre zone libre trouvé (entête comprise)
+    // On calcule la taille totale de notre zone libre trouvé (entête compris)
     size_t fb_size = current_fb->size;
 
-    // Si le résidu restant ne peut contenir la taille d'une entête + un entier
+    // Si le résidu restant ne peut contenir la taille d'un entête + un entier
     // alors on augmente la taille du bloc que l'on va allouer par la taille du résidu.
     fb *new_block;
 
@@ -97,7 +100,7 @@ void *mem_alloc(size_t size)
         precedent_fb->next = new_block;
     }
 
-    // On définit la taille du bloc alloué
+    // On définit la taille du bloc alloué ainsi que son pointeur (pour les vérifications d'accès invalides)
     bb *busy_block = (bb *)current_fb;
     busy_block->size = bb_size;
     busy_block->ptr = (void *)busy_block;
@@ -128,7 +131,10 @@ void mem_copy_data(void *source, void *destination)
 //-------------------------------------------------------------
 void *mem_realloc(void *zone, size_t size)
 {
-    // cas où zone est NULL
+    // Dans le cas où zone NULL alors mem_realloc agit comme mem_alloc (d'après la specification de realloc)
+    if (zone == NULL)
+        return mem_alloc(size);
+
     header *g_head = get_head();
 
     bb *current_bb = (bb *)(zone - sizeof(bb));
@@ -231,6 +237,7 @@ void mem_remove_data(void *block)
     char *bb_block_data = (char *)block + sizeof(bb);
     size_t bb_block_size = ((bb *)block)->size - sizeof(bb);
 
+    // On supprime les données contenues dans la partie retournée à l'utilisateur
     for (i = 0; i < bb_block_size; i++)
     {
         bb_block_data[i] = 0;
@@ -268,6 +275,7 @@ void mem_free(void *zone)
 
     fb *new_block = (fb *)current_bb;
 
+    // On réordonne notre liste chaînée de zones libres
     fb *temp = last_fb->next;
     last_fb->next = new_block;
     new_block->next = temp;
