@@ -45,10 +45,4 @@ typedef struct
 // Permet de récupérer l'entête
 header *get_head();
 
-enum HeadType
-{
-    BUSY,
-    FREE
-};
-
 #endif /* mem_os_h */
